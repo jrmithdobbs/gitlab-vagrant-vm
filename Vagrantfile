@@ -1,17 +1,31 @@
-Vagrant::Config.run do |config|
-  config.vm.box = "precise32"
-  config.vm.box_url = "http://files.vagrantup.com/precise32.box"
-  config.vm.network :hostonly, '192.168.3.14'
-  config.vm.customize ["modifyvm", :id, "--memory", 1024]
+Vagrant.configure("2")  do |config|
+  #config.vm.box = "precise32"
+  #config.vm.box_url = "http://files.vagrantup.com/precise32.box"
 
-  # Default user/group id for vagrant in precise32
-  host_user_id = 1000
-  host_group_id = 1000
+  config.vm.box = "precise64"
+  config.vm.box_url = "http://files.vagrantup.com/precise64.box"
 
-  if RUBY_PLATFORM =~ /linux|darwin/
-    config.vm.share_folder("v-root", "/vagrant", ".", :nfs => true)
+  #config.vm.box = "precise64_vmware_fusion"
+  #config.vm.box_url = "http://files.vagrantup.com/precise64_vmware_fusion.box"
+
+  config.vm.network :private_network, ip: "192.168.3.14"
+  config.vm.synced_folder ".", "/vagrant", :nfs => true
+
+  config.vm.provider :vmware_fusion do |v|
+    v.vmx["memsize"] = "1024"
+    v.vmx["numvcpus"] = 2
+  end
+
+  config.vm.provider :virtualbox do |v|
+    v.customize ["modifyvm", :id, "--memory", 1024, "--cpus", 2]
+  end
+
+  if RUBY_PLATFORM =~ /linux|darwin/i
     host_user_id = Process.euid
     host_group_id = Process.egid
+  else
+    host_user_id = 1000
+    host_group_id = 1000
   end
 
   config.vm.provision :chef_solo do |chef|
@@ -55,6 +69,10 @@ Vagrant::Config.run do |config|
         :server_root_password => "nonrandompasswordsaregreattoo",
         :server_repl_password => "nonrandompasswordsaregreattoo",
         :server_debian_password => "nonrandompasswordsaregreattoo"
+      },
+      :postgresql => {
+        :password => { :postgres => "598fedc3550ad4ecad4ec14aa7992e82"},
+        :run_list => ["recipe[postgresql::server"]
       },
       :gitlab => {
         :host_user_id => host_user_id,

@@ -17,13 +17,13 @@ production: &base
     ## Web server settings
     host: localhost
     port: 80
-    https: false
+    https: <%= @https_boolean %>
     # Uncomment and customize to run in non-root path
     # Note that ENV['RAILS_RELATIVE_URL_ROOT'] in config/unicorn.rb may need to be changed
     # relative_url_root: /gitlab
 
     # Uncomment and customize if you can't use the default user to run GitLab (default: 'git')
-    # user: git
+    user: <%= @git_user %>
 
     ## Email settings
     # Email address used in the "From" field in mails sent by GitLab
@@ -52,6 +52,11 @@ production: &base
       ##  :issues_tracker_id - Project Name or Id in external issue tracker
       ##  :id                - Issue id (from commit messages)
       issues_url: "http://redmine.sample/issues/:id"
+      ## If not nil, links to creating new issues will be replaced with this
+      ## Use placeholders:
+      ##  :project_id        - GitLab project identifier
+      ##  :issues_tracker_id - Project Name or Id in external issue tracker
+      new_issue_url: "http://redmine.sample/projects/:issues_tracker_id/issues/new"
 
   ## Gravatar
   gravatar:
@@ -113,7 +118,7 @@ production: &base
   # GitLab Satellites
   satellites:
     # Relative paths are relative to Rails.root (default: tmp/repo_satellites/)
-    path: /vagrant/gitlab-satellites/
+    path: <%= @repos_satellites_path %>
 
   ## Backup settings
   backup:
@@ -122,9 +127,10 @@ production: &base
 
   ## GitLab Shell settings
   gitlab_shell:
+    ssh_user: vagrant
     # REPOS_PATH MUST NOT BE A SYMLINK!!!
-    repos_path: /vagrant/repositories/
-    hooks_path: /vagrant/gitlab-shell/hooks/
+    repos_path: <%= @repos_path %>
+    hooks_path: <%= @app_shell_hooks_path %>
 
     # Git over HTTP
     upload_pack: true
@@ -153,6 +159,7 @@ test:
     redmine:
       project_url: "http://redmine/projects/:issues_tracker_id"
       issues_url: "http://redmine/:project_id/:issues_tracker_id/:id"
+      new_issue_url: "http://redmine/projects/:issues_tracker_id/issues/new"
 
 staging:
   <<: *base

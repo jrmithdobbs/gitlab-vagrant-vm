@@ -5,6 +5,28 @@
   include_recipe requirement
 end
 
+# Vagrant can't change it's own uid - My ass :)
+# Deletes dialout because 20 is a common primary group on os x for admin
+# accounts and dialout is pretty much a worthless legacy group any how.
+execute 'fix vagrant gid' do
+  command "(groupdel dialout; groupmod -n git -o -g #{node['gitlab']['host_group_id']} vagrant) >/dev/null 2>&1;"
+  cwd '/'
+  user 'root'
+  only_if "getent group vagrant"
+end
+execute 'fix vagrant uid' do
+  command "sed -i -e 's,^vagrant:x:1000:,vagrant:x:#{node['gitlab']['host_user_id']}:,' /etc/passwd >/dev/null 2>&1;"
+  cwd '/'
+  user 'root'
+  not_if "[ \"$(getent passwd vagrant)\" = \"$(getent passwd #{node['gitlab']['host_user_id']}\" ]"
+end
+execute 'fix vagrant perms' do
+  command "chown #{node['gitlab']['host_user_id']}:#{node['gitlab']['host_group_id']} #{node['gitlab']['home']}; find #{node['gitlab']['home']}/ -mindepth 1 -maxdepth 1 -name '.*' -exec chown -R #{node['gitlab']['host_user_id']}:#{node['gitlab']['host_group_id']} '{}' +"
+  cwd '/'
+  user 'root'
+  not_if "[ \"$(stat -c %u:%g #{node['gitlab']['home']})\" = \"#{node['gitlab']['host_user_id']}:#{node['gitlab']['host_group_id']}\" ]"
+end
+
 # symlink redis-cli into /usr/bin (needed for gitlab hooks to work)
 link "/usr/bin/redis-cli" do
   to "/usr/local/bin/redis-cli"
@@ -34,6 +56,15 @@ end
 
 # Generate and deploy ssh public/private keys
 Gem.clear_paths
+
+# Work around for vagrant not cleaning up /vagrant
+# mount when we have bind mounts out of it.
+template "/etc/rc.local" do
+  source "rc.local.erb"
+  owner 'root'
+  group 'root'
+  mode 0755
+end
 
 # Configure gitlab user to auto-accept localhost SSH keys
 template "#{node['gitlab']['home']}/.ssh/config" do
@@ -75,8 +106,10 @@ template "#{node['gitlab']['app_home']}/config/gitlab.yml" do
   variables(
     :fqdn => node['fqdn'],
     :https_boolean => node['gitlab']['https'],
-    :git_user => node['gitlab']['git_user'],
-    :git_home => node['gitlab']['git_home']
+    :git_user => node['gitlab']['user'],
+    :repos_path => node['gitlab']['repos_path'],
+    :repos_satellites_path => node['gitlab']['repos_satellites_path'],
+    :app_shell_hooks_path => node['gitlab']['app_shell_hooks_path']
   )
 end
 
@@ -175,6 +208,13 @@ service "xvfb" do
   action :start
 end
 
+# Make sure we have a sane ssl validation environment!
+execute 'update-ca-certificates' do
+  command "update-ca-certificates"
+  cwd '/'
+  user 'root'
+end
+
 # Install Gems with bundle install
 # `execute` doesn't use the user environment and so this is a work around to do
 # as if it was vagrant and not root.
@@ -209,3 +249,4 @@ file "#{node['gitlab']['home']}/.vagrant_seed" do
   group node['gitlab']['group']
   action :create
 end
+

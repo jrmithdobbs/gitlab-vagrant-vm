@@ -9,7 +9,8 @@ cookbook 'openssh'
 cookbook 'perl'
 cookbook 'xml'
 cookbook 'zlib'
-cookbook 'mysql'
+cookbook 'mysql',
+  :version => ">= 2.1.2"
 cookbook 'postgresql'
 cookbook 'database'
 cookbook 'phantomjs'
